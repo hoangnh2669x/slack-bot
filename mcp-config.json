@@ -1,0 +1,27 @@
+{
+  "mcpServers": {
+    "redmine": {
+      "url": "https://redmine-mcp-server.vercel.app/api/mcp",
+      "params": {
+        "redmine_url": "${REDMINE_URL}",
+        "api_key": "${REDMINE_API_KEY}"
+      }
+    }
+  },
+  "_comment": "Add more MCP servers here. Use ${ENV_VAR} for sensitive data.",
+  "_examples": {
+    "gitlab": {
+      "url": "https://gitlab-mcp-server.com/api/mcp",
+      "params": {
+        "gitlab_url": "${GITLAB_URL}",
+        "token": "${GITLAB_TOKEN}"
+      }
+    },
+    "github": {
+      "url": "https://github-mcp-server.com/api/mcp",
+      "params": {
+        "token": "${GITHUB_TOKEN}"
+      }
+    }
+  }
+}

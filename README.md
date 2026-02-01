@@ -1,13 +1,12 @@
 # Slack AI Bot with Redmine Integration
 
-Slack bot tích hợp AI với khả năng tìm kiếm Google, điều khiển đèn thông minh, và tạo task trong Redmine.
+Slack bot tích hợp AI với khả năng tìm kiếm Google và quản lý Redmine tasks qua MCP server.
 
 ## 🚀 Features
 
 - ✅ **AI-Powered Responses**: Trả lời thông minh dựa trên context của thread
 - ✅ **Google Search**: Tìm kiếm thông tin real-time
-- ✅ **Smart Light Control**: Điều khiển đèn thông minh (mock)
-- ✅ **Redmine Integration**: Tạo task/issue trong Redmine project management
+- ✅ **Redmine Integration**: Quản lý tasks, log time, update status qua MCP server
 - ✅ **Vietnamese Support**: Hỗ trợ tiếng Việt với timezone Việt Nam
 - ✅ **Thread-Aware**: Hiểu context của toàn bộ conversation
 
@@ -17,7 +16,7 @@ Slack bot tích hợp AI với khả năng tìm kiếm Google, điều khiển �
 - Vercel account
 - Slack workspace với bot token
 - AI API key (cliproxyapi)
-- Redmine instance với API access
+- MCP server deployment (Redmine)
 
 ## 🔧 Environment Variables
 
@@ -31,10 +30,9 @@ SLACK_BOT_TOKEN=xoxb-your-slack-bot-token
 AI_API_KEY=your-ai-api-key
 AI_MODEL=gemini-3-flash-preview  # Optional, default value
 
-# Redmine Configuration (Optional - for task creation)
+# Redmine Configuration (Passed to MCP server via URL params)
 REDMINE_URL=https://your-redmine.com
 REDMINE_API_KEY=your-redmine-api-key
-REDMINE_DEFAULT_PROJECT_ID=1
 ```
 
 ### Lấy Slack Bot Token:
@@ -52,7 +50,6 @@ REDMINE_DEFAULT_PROJECT_ID=1
 1. Đăng nhập Redmine
 2. Vào **My account** → **API access key**
 3. Click **Show** hoặc **Reset** để lấy key
-4. Lấy Project ID từ URL project (ví dụ: `/projects/123`)
 
 ## 📦 Installation
 
@@ -84,7 +81,6 @@ vercel env add SLACK_BOT_TOKEN
 vercel env add AI_API_KEY
 vercel env add REDMINE_URL
 vercel env add REDMINE_API_KEY
-vercel env add REDMINE_DEFAULT_PROJECT_ID
 
 # Deploy to production
 vercel --prod
@@ -115,27 +111,27 @@ vercel --prod
 @YourBot Giá Bitcoin hiện tại
 ```
 
-### Smart Light Control:
+### Redmine Management:
 
 ```
-@YourBot Bật đèn
-@YourBot Bật đèn với độ sáng 50%
-@YourBot Tắt đèn
+@YourBot xem task của tôi
+@YourBot xem task #225061
+@YourBot log 4 giờ vào task #225061 với mô tả là "Hoàn thành API integration"
+@YourBot chuyển task #225061 sang In Progress
+@YourBot task #225061 đã xong 80%
+@YourBot thêm comment vào task #225061: đã xong phần frontend
+@YourBot xem giờ đã log hôm nay
 ```
 
-### Redmine Task Creation:
-
-```
-@YourBot Tạo task: Fix bug login
-@YourBot Tạo task urgent: Optimize database performance
-@YourBot Tạo feature: Add dark mode support với mô tả là cần implement dark theme cho toàn bộ app
-```
-
-**AI tự động parse:**
-- **Priority**: urgent/khẩn cấp (Urgent), high/cao (High), normal/bình thường (Normal), low/thấp (Low)
-- **Tracker**: bug/lỗi (Bug), feature/tính năng (Feature), support/hỗ trợ (Support)
-- **Subject**: Trích xuất từ câu lệnh
-- **Description**: Lấy từ context hoặc mô tả chi tiết
+**MCP Tools (8 tools):**
+- `listMyRedmineTasks` - Xem danh sách tasks được assign
+- `getRedmineIssueDetails` - Xem chi tiết issue
+- `logRedmineTime` - Log thời gian làm việc
+- `updateRedmineIssueStatus` - Đổi status
+- `updateRedmineProgress` - Cập nhật % hoàn thành
+- `addRedmineNote` - Thêm comment
+- `getTodayRedmineLogs` - Xem time logs hôm nay
+- `getRedmineLogsRange` - Xem time logs theo khoảng thời gian
 
 ## 🏗️ Architecture
 
@@ -146,9 +142,10 @@ slack-bot/
 ├── lib/
 │   ├── ai.js             # AI service & tool execution orchestration
 │   ├── aiTools.js        # AI tools configuration & system prompt
-│   ├── redmine.js        # Redmine integration module
-│   ├── slack.js          # Slack helper functions
-│   └── smartLight.js     # Smart light control module
+│   ├── mcpManager.js     # MCP multi-server manager
+│   ├── mcpClient.js      # MCP client wrapper
+│   └── slack.js          # Slack helper functions
+├── mcp-config.json       # MCP servers configuration
 ├── package.json
 ├── .env.example          # Environment variables template
 └── README.md
@@ -160,7 +157,7 @@ slack-bot/
 - **Runtime**: Node.js (ES Modules)
 - **Slack SDK**: @slack/web-api
 - **AI API**: Custom endpoint with Google Search
-- **Redmine API**: REST API v3+
+- **Redmine Integration**: MCP Protocol (Model Context Protocol)
 
 ### Code Organization:
 
@@ -169,9 +166,9 @@ slack-bot/
 - **Small files**: Each file < 200 lines for maintainability
 - **Clear separation**: API layer → Service layer → Integration modules
 
-## 🔍 Function Calling
+## 🔍 MCP Function Calling
 
-Bot hỗ trợ 3 function calls:
+Bot hỗ trợ 9 function calls (1 Google Search + 8 Redmine MCP Tools):
 
 ### 1. Google Search
 ```javascript
@@ -180,27 +177,86 @@ Bot hỗ trợ 3 function calls:
 }
 ```
 
-### 2. Control Light
+### 2-9. Redmine MCP Tools
+
+**List My Tasks:**
 ```javascript
 {
-  name: 'controlLight',
+  name: 'listMyRedmineTasks',
+  parameters: {}
+}
+```
+
+**Get Issue Details:**
+```javascript
+{
+  name: 'getRedmineIssueDetails',
   parameters: {
-    action: 'on' | 'off',
-    brightness: 0-100  // optional
+    issue_id: number  // required
   }
 }
 ```
 
-### 3. Create Redmine Issue
+**Log Time:**
 ```javascript
 {
-  name: 'createRedmineIssue',
+  name: 'logRedmineTime',
   parameters: {
-    subject: string,           // required
-    description: string,       // optional
-    priority_id: 3-7,         // optional, default: 4 (Normal)
-    tracker_id: 1-3,          // optional, default: 2 (Feature)
-    estimated_hours: number   // optional
+    issue_id: number,     // required
+    hours: number,        // required
+    comments: string      // optional
+  }
+}
+```
+
+**Update Status:**
+```javascript
+{
+  name: 'updateRedmineIssueStatus',
+  parameters: {
+    issue_id: number,  // required
+    status: string     // required: "Open", "In Progress", "Completed", etc.
+  }
+}
+```
+
+**Update Progress:**
+```javascript
+{
+  name: 'updateRedmineProgress',
+  parameters: {
+    issue_id: number,  // required
+    progress: number   // required: 0-100
+  }
+}
+```
+
+**Add Note:**
+```javascript
+{
+  name: 'addRedmineNote',
+  parameters: {
+    issue_id: number,  // required
+    note: string       // required
+  }
+}
+```
+
+**Get Today Logs:**
+```javascript
+{
+  name: 'getTodayRedmineLogs',
+  parameters: {}
+}
+```
+
+**Get Logs Range:**
+```javascript
+{
+  name: 'getRedmineLogsRange',
+  parameters: {
+    start_date: string,  // required: YYYY-MM-DD
+    end_date: string     // required: YYYY-MM-DD
   }
 }
 ```
@@ -214,12 +270,12 @@ Bot hỗ trợ 3 function calls:
 3. Check Slack Event Subscriptions URL
 4. Verify bot có quyền `app_mentions:read` và `chat:write`
 
-### Redmine integration không hoạt động:
+### Redmine MCP integration không hoạt động:
 
 1. Verify `REDMINE_URL` không có trailing slash
 2. Check `REDMINE_API_KEY` còn valid
-3. Verify `REDMINE_DEFAULT_PROJECT_ID` tồn tại
-4. Check Redmine API enabled: **Administration** → **Settings** → **API** → Enable REST API
+3. Check MCP server deployment: https://redmine-mcp-server.vercel.app/api/mcp
+4. Verify `mcp-config.json` đã config đúng
 
 ### Logs:
 
@@ -245,7 +301,33 @@ ngrok http 3000
 # Update Slack Event Subscriptions URL to ngrok URL
 ```
 
-### Add New Function Calling:
+### Add New MCP Server:
+
+1. **Update `mcp-config.json`** - Thêm server mới
+   ```json
+   {
+     "mcpServers": {
+       "redmine": { ... },
+       "gitlab": {
+         "url": "https://gitlab-mcp-server.com/api/mcp",
+         "params": {
+           "gitlab_url": "${GITLAB_URL}",
+           "token": "${GITLAB_TOKEN}"
+         }
+       }
+     }
+   }
+   ```
+
+2. **Add environment variables** - Set credentials
+   ```bash
+   vercel env add GITLAB_URL
+   vercel env add GITLAB_TOKEN
+   ```
+
+3. **Deploy** - MCP manager sẽ tự động discover tools từ server mới
+
+### Add New Function (non-MCP):
 
 1. **Create new module** in `lib/` (e.g., `lib/weather.js`)
    ```javascript
