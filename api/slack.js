@@ -50,7 +50,7 @@ export default async function handler(req, res) {
       }
 
       // Xử lý và đợi hoàn thành
-      await handleMention(data.event, process.env.SLACK_BOT_TOKEN, process.env.AI_API_KEY, process.env.AI_MODEL || 'gemini-3-flash-preview');
+      await handleMention(data.event, process.env.SLACK_BOT_TOKEN, process.env.AI_API_KEY, process.env.AI_MODEL || 'gemini-3-flash-preview', project_id);
       return res.status(200).send('ok');
     }
 
@@ -61,7 +61,7 @@ export default async function handler(req, res) {
   }
 }
 
-async function handleMention(event, token, aiApiKey, aiModel) {
+async function handleMention(event, token, aiApiKey, aiModel, projectId) {
   const startTime = Date.now();
 
   try {
@@ -73,6 +73,7 @@ async function handleMention(event, token, aiApiKey, aiModel) {
     console.log('Channel:', channel);
     console.log('Thread TS:', threadTs);
     console.log('AI Model:', aiModel);
+    console.log('Project ID:', projectId);
 
     const client = new WebClient(token);
 
@@ -84,7 +85,7 @@ async function handleMention(event, token, aiApiKey, aiModel) {
 
     // Gọi AI để trả lời
     console.log('Calling AI...');
-    const aiResponse = await callAI(threadMessages, aiApiKey, aiModel);
+    const aiResponse = await callAI(threadMessages, aiApiKey, aiModel, projectId);
     console.log('AI response received:', aiResponse.substring(0, 100));
     console.log('Time elapsed:', Date.now() - startTime, 'ms');
 
